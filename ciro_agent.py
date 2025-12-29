@@ -7,58 +7,66 @@ api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI()
 
 def run_ciro_flow(excel_path):
-    df = pd.read_excel(excel_path)
+    """
+    data/mock_ciro.xlsx dosyasından ciro verisini okur,
+    basit bir tahmin üretir ve OpenAI ile yönetici yorumu ekler.
+    """
+    df = pd.read_excel(excel_path, sheet_name="SAP_CIRO_6AY")
 
-    # 🔒 Kolon isimlerini normalize et
-    df.columns = [c.strip().lower() for c in df.columns]
+    # Son 6 ay kolonlarını otomatik bul (MüşteriKodu vb. dışındaki aylık kolonlar)
+    non_month_cols = {"MüşteriKodu", "MüşteriAdı", "Bölge", "Segment", "ParaBirimi", "Toplam_6Ay"}
+    month_cols = [c for c in df.columns if c not in non_month_cols]
 
-    # Olası tarih kolonları
-    if "ay" in df.columns:
-        date_col = "ay"
-    elif "tarih" in df.columns:
-        date_col = "tarih"
-    elif "date" in df.columns:
-        date_col = "date"
+    if len(month_cols) < 2:
+        raise ValueError("Excel formatı beklenen gibi değil: Aylık kolonlar bulunamadı.")
+
+    last_month_col = month_cols[-1]
+    prev_month_col = month_cols[-2]
+
+    # Basit tahmin: son ay * (1 + büyüme) -> büyümeyi son 2 ay değişiminden al
+    last_total = float(df[last_month_col].sum())
+    prev_total = float(df[prev_month_col].sum())
+    growth = 0.0 if prev_total == 0 else (last_total - prev_total) / prev_total
+    # büyümeyi aşırı uçlardan kırp
+    growth = max(min(growth, 0.25), -0.25)
+
+    forecast_total = last_total * (1 + growth)
+
+    # Müşteri bazlı tahmin (aynı growth ile)
+    df_out = df.copy()
+    df_out["Gelecek_Ay_Tahmin"] = (df_out[last_month_col] * (1 + growth)).round(2)
+
+    # OpenAI yorumu (key yoksa fallback)
+    if client:
+        prompt = f"""
+Yorglass finans asistanısın. Aşağıdaki özet üzerinden kısa ve yönetici diliyle bir değerlendirme yaz.
+- Önceki ay toplam: {prev_total:,.2f} TRY
+- Son ay toplam: {last_total:,.2f} TRY
+- Hesaplanan büyüme: %{growth*100:.2f}
+- Gelecek ay tahmini: {forecast_total:,.2f} TRY
+
+Çıktı formatı:
+1) 3-5 cümle yönetici özeti
+2) 3 madde aksiyon önerisi
+"""
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            temperature=0.2,
+            messages=[
+                {"role": "system", "content": "Sen bir finans analisti gibi net ve kısa yazarsın."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        commentary = resp.choices[0].message.content.strip()
     else:
-        raise ValueError(
-            f"Tarih kolonu bulunamadı. Bulunan kolonlar: {df.columns.tolist()}"
+        commentary = (
+            "OPENAI_API_KEY tanımlı değil. Tahmin üretildi ancak AI yorumu için API key gereklidir.\n"
+            "Öneri: Windows ortam değişkeni olarak OPENAI_API_KEY ekleyin."
         )
 
-    # Olası ciro kolonları
-    if "ciro" not in df.columns:
-        raise ValueError("Excel içinde 'ciro' kolonu bulunamadı.")
-
-    # Tarih dönüşümü
-    df[date_col] = pd.to_datetime(df[date_col])
-
-    # Son ay
-    last_month = df[date_col].max()
-    last_month_total = df[df[date_col] == last_month]["ciro"].sum()
-
-    # Senaryolar
-    scenarios = pd.DataFrame({
-        "Senaryo": ["Kötümser", "Beklenen", "İyimser"],
-        "Tahmini Ciro": [
-            int(last_month_total * 0.9),
-            int(last_month_total * 1.05),
-            int(last_month_total * 1.2),
-        ]
-    })
-
-    # AI Yorumu
-    prompt = f"""
-    Son ay ciro: {last_month_total} TL.
-    Kötümser, beklenen ve iyimser senaryoları yorumla.
-    Yöneticiye yönelik, kısa ve net bir analiz yaz.
-    """
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}]
-    )
-
     return {
-        "last_month_total": last_month_total,
-        "scenarios": scenarios,
-        "ai_commentary": response.choices[0].message.content
+        "forecast_total_try": f"{forecast_total:,.2f} TRY",
+        "forecast_vs_last_month": f"%{growth*100:.2f}",
+        "ai_commentary": commentary,
+        "table": df_out[["MüşteriKodu","MüşteriAdı","Bölge","Segment", last_month_col, "Gelecek_Ay_Tahmin"]]
     }
