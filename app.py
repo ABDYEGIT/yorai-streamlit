@@ -80,7 +80,7 @@ with st.sidebar:
     st.markdown("---")
     if st.button("🔄 Baştan Başla"):
         st.session_state.step = "prompt"
-        st.experimental_rerun()
+        st.rerun()
 
 # --------------------
 # HEADER
@@ -106,7 +106,8 @@ if st.session_state.step == "prompt":
 
     if st.button("Devam ▶️"):
         st.session_state.step = "select"
-        st.experimental_rerun()
+        st.rerun()
+
 
 # --------------------
 # STEP 2 – SELECTION
@@ -128,7 +129,8 @@ elif st.session_state.step == "select":
     if st.button("Çalıştır 🚀"):
         st.session_state.option = option
         st.session_state.step = "result"
-        st.experimental_rerun()
+        st.rerun()
+
 
 # --------------------
 # STEP 3 – RESULT
@@ -160,4 +162,5 @@ elif st.session_state.step == "result":
     st.markdown("---")
     if st.button("🔁 Yeni İşlem"):
         st.session_state.step = "prompt"
-        st.experimental_rerun()
+        st.rerun()
+
