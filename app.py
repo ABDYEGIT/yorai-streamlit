@@ -20,8 +20,11 @@ st.set_page_config(
 )
 
 # --------------------
-# SESSION STATE
+# SESSION STATE INIT
 # --------------------
+if "onboarded" not in st.session_state:
+    st.session_state.onboarded = False
+
 if "step" not in st.session_state:
     st.session_state.step = "prompt"
 
@@ -29,7 +32,7 @@ if "theme_mode" not in st.session_state:
     st.session_state.theme_mode = "Light"
 
 # --------------------
-# THEME SWITCH (CSS)
+# THEME SWITCH (FULL PAGE)
 # --------------------
 def apply_theme(mode: str):
     if mode == "Dark":
@@ -39,20 +42,61 @@ def apply_theme(mode: str):
             background-color: #0E1117;
             color: #FAFAFA;
         }
-        h1, h2, h3 {
+
+        section.main {
+            background-color: #0E1117;
+            color: #FAFAFA;
+        }
+
+        h1, h2, h3, h4 {
             color: #00A6B2;
         }
+
+        p, span, label {
+            color: #E0E0E0 !important;
+        }
+
+        input, textarea {
+            background-color: #1C1F26 !important;
+            color: #FFFFFF !important;
+        }
+
+        div[data-baseweb="radio"] label {
+            color: #E0E0E0 !important;
+        }
+
+        button {
+            background-color: #00A6B2 !important;
+            color: #FFFFFF !important;
+            border: none;
+        }
+
+        button:hover {
+            background-color: #008C96 !important;
+        }
+
+        hr {
+            border-color: #2A2E39;
+        }
+
         [data-testid="stSidebar"] {
             background-color: #161A23;
         }
         </style>
         """, unsafe_allow_html=True)
+
     else:
         st.markdown("""
         <style>
+        section.main {
+            background-color: #FFFFFF;
+            color: #5A5A5A;
+        }
+
         h1, h2, h3 {
             color: #00A6B2;
         }
+
         [data-testid="stSidebar"] {
             background-color: #F4F7F8;
         }
@@ -60,7 +104,7 @@ def apply_theme(mode: str):
         """, unsafe_allow_html=True)
 
 # --------------------
-# SIDEBAR (LOGO + THEME)
+# SIDEBAR
 # --------------------
 with st.sidebar:
     st.image(ASSETS_DIR / "yorglass_logo.png", use_column_width=True)
@@ -79,6 +123,7 @@ with st.sidebar:
 
     st.markdown("---")
     if st.button("🔄 Baştan Başla"):
+        st.session_state.onboarded = False
         st.session_state.step = "prompt"
         st.rerun()
 
@@ -89,16 +134,47 @@ st.title("YORAI")
 st.caption("Yorglass Yapay Zeka Destek Asistanı")
 
 st.markdown(
-    "<span style='color:#008C96'>Veriye dayalı, hızlı ve güvenilir analizler</span>",
+    "<span style='color:#00A6B2'>Veriye dayalı, hızlı ve güvenilir analizler</span>",
     unsafe_allow_html=True
 )
 
 st.markdown("---")
 
 # --------------------
+# ONBOARDING
+# --------------------
+if not st.session_state.onboarded:
+    st.markdown("## 👋 YORAI’ye Hoş Geldiniz")
+
+    st.markdown("""
+    **YORAI**, Yorglass için geliştirilmiş bir **yapay zeka destekli karar destek sistemidir**.
+
+    ### YORAI ile neler yapabilirsiniz?
+    - 📊 **Müşteri bazlı ciro tahmini**
+    - 🧾 **Fatura görsellerinden otomatik veri çıkarımı**
+    - 🤖 **Veriye dayalı finansal yorumlar**
+
+    ---
+    """)
+
+    col1, col2 = st.columns([1, 3])
+
+    with col1:
+        if st.button("🚀 Başla"):
+            st.session_state.onboarded = True
+            st.session_state.step = "prompt"
+            st.rerun()
+
+    with col2:
+        st.info(
+            "Bu uygulama bir **karar destek sistemi**dir. "
+            "Nihai karar kullanıcıya aittir."
+        )
+
+# --------------------
 # STEP 1 – PROMPT
 # --------------------
-if st.session_state.step == "prompt":
+elif st.session_state.step == "prompt":
     prompt = st.text_input(
         "Sana nasıl yardımcı olmamı istersin?",
         placeholder="Örn: Satışları analiz etmek istiyorum"
@@ -108,9 +184,8 @@ if st.session_state.step == "prompt":
         st.session_state.step = "select"
         st.rerun()
 
-
 # --------------------
-# STEP 2 – SELECTION
+# STEP 2 – SELECT
 # --------------------
 elif st.session_state.step == "select":
     st.success(
@@ -130,7 +205,6 @@ elif st.session_state.step == "select":
         st.session_state.option = option
         st.session_state.step = "result"
         st.rerun()
-
 
 # --------------------
 # STEP 3 – RESULT
@@ -163,4 +237,3 @@ elif st.session_state.step == "result":
     if st.button("🔁 Yeni İşlem"):
         st.session_state.step = "prompt"
         st.rerun()
-
