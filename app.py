@@ -32,27 +32,31 @@ if "theme_mode" not in st.session_state:
     st.session_state.theme_mode = "Light"
 
 # --------------------
-# THEME SWITCH (FULL PAGE)
+# THEME SWITCH (FIXED)
 # --------------------
 def apply_theme(mode: str):
     if mode == "Dark":
         st.markdown("""
         <style>
-        body {
+        html, body, .stApp {
             background-color: #0E1117;
             color: #FAFAFA;
         }
 
         section.main {
             background-color: #0E1117;
-            color: #FAFAFA;
+        }
+
+        .block-container {
+            background-color: #0E1117;
+            padding-top: 2rem;
         }
 
         h1, h2, h3, h4 {
             color: #00A6B2;
         }
 
-        p, span, label {
+        p, span, label, li {
             color: #E0E0E0 !important;
         }
 
@@ -88,9 +92,13 @@ def apply_theme(mode: str):
     else:
         st.markdown("""
         <style>
-        section.main {
+        html, body, .stApp {
             background-color: #FFFFFF;
             color: #5A5A5A;
+        }
+
+        .block-container {
+            background-color: #FFFFFF;
         }
 
         h1, h2, h3 {
@@ -153,8 +161,6 @@ if not st.session_state.onboarded:
     - 📊 **Müşteri bazlı ciro tahmini**
     - 🧾 **Fatura görsellerinden otomatik veri çıkarımı**
     - 🤖 **Veriye dayalı finansal yorumlar**
-
-    ---
     """)
 
     col1, col2 = st.columns([1, 3])
