@@ -4,135 +4,160 @@ from pathlib import Path
 from ciro_agent import run_ciro_flow
 from invoice_agent import run_invoice_flow
 
-APP_TITLE = "YORAI - Yorglass Yapay Zeka Asistanı"
-DATA_DIR = Path(__file__).parent / "data"
+# --------------------
+# PATHS
+# --------------------
+BASE_DIR = Path(__file__).parent
+ASSETS_DIR = BASE_DIR / "assets"
+DATA_DIR = BASE_DIR / "data"
 
-st.set_page_config(page_title=APP_TITLE, layout="centered")
+# --------------------
+# PAGE CONFIG
+# --------------------
+st.set_page_config(
+    page_title="YORAI | Yorglass",
+    layout="wide",
+)
 
-# --- Session State defaults
+# --------------------
+# SESSION STATE
+# --------------------
 if "step" not in st.session_state:
-    st.session_state.step = "ask_prompt"  # ask_prompt -> choose -> result
-if "user_prompt" not in st.session_state:
-    st.session_state.user_prompt = ""
+    st.session_state.step = "prompt"
 
+if "theme_mode" not in st.session_state:
+    st.session_state.theme_mode = "Light"
 
-st.title("🤖 YORAI")
-st.caption("Yorglass içi PoC - Kontrollü Asistan")
+# --------------------
+# THEME SWITCH (CSS)
+# --------------------
+def apply_theme(mode: str):
+    if mode == "Dark":
+        st.markdown("""
+        <style>
+        body {
+            background-color: #0E1117;
+            color: #FAFAFA;
+        }
+        h1, h2, h3 {
+            color: #00A6B2;
+        }
+        [data-testid="stSidebar"] {
+            background-color: #161A23;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <style>
+        h1, h2, h3 {
+            color: #00A6B2;
+        }
+        [data-testid="stSidebar"] {
+            background-color: #F4F7F8;
+        }
+        </style>
+        """, unsafe_allow_html=True)
 
-# --- Reset button (her yerden sıfırlamak için)
+# --------------------
+# SIDEBAR (LOGO + THEME)
+# --------------------
 with st.sidebar:
-    if st.button("🔄 Sıfırla / Baştan Başla"):
-        st.session_state.step = "ask_prompt"
-        st.session_state.user_prompt = ""
-        st.rerun()
+    st.image(ASSETS_DIR / "yorglass_logo.png", use_column_width=True)
 
+    st.markdown("---")
+    st.subheader("🎨 Tema")
 
-# ==============
-# STEP 1: Prompt al
-# ==============
-if st.session_state.step == "ask_prompt":
-    st.subheader("Sana nasıl yardımcı olayım?")
+    theme = st.radio(
+        "Görünüm",
+        ["Light", "Dark"],
+        index=0 if st.session_state.theme_mode == "Light" else 1
+    )
+
+    st.session_state.theme_mode = theme
+    apply_theme(theme)
+
+    st.markdown("---")
+    if st.button("🔄 Baştan Başla"):
+        st.session_state.step = "prompt"
+        st.experimental_rerun()
+
+# --------------------
+# HEADER
+# --------------------
+st.title("YORAI")
+st.caption("Yorglass Yapay Zeka Destek Asistanı")
+
+st.markdown(
+    "<span style='color:#008C96'>Veriye dayalı, hızlı ve güvenilir analizler</span>",
+    unsafe_allow_html=True
+)
+
+st.markdown("---")
+
+# --------------------
+# STEP 1 – PROMPT
+# --------------------
+if st.session_state.step == "prompt":
     prompt = st.text_input(
-        "Prompt gir:",
-        value="",
-        placeholder="Örn: Bu ay satışlarımızı analiz etmek istiyorum...",
-        key="prompt_input"
+        "Sana nasıl yardımcı olmamı istersin?",
+        placeholder="Örn: Satışları analiz etmek istiyorum"
     )
 
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        send = st.button("Gönder ✅")
+    if st.button("Devam ▶️"):
+        st.session_state.step = "select"
+        st.experimental_rerun()
 
-    if send:
-        st.session_state.user_prompt = prompt.strip()
-        # Prompt boş olsa bile akışı ilerletiyoruz (kullanıcı deneyimi)
-        st.session_state.step = "choose"
-        st.rerun()
-
-
-# ==========================
-# STEP 2: Seçenek seçtir (prompt kilit)
-# ==========================
-if st.session_state.step == "choose":
-    st.success("Mesajını aldım ✅")
-
-    st.markdown(
-        """
-**Merhaba, ben YORAI.**  
-Şimdilik sadece aşağıdaki iki konuda destek olabiliyorum.  
-Lütfen birini seç:
-"""
+# --------------------
+# STEP 2 – SELECTION
+# --------------------
+elif st.session_state.step == "select":
+    st.success(
+        "Merhaba, ben **YORAI** 👋  \n"
+        "Şu an sadece aşağıdaki iki konuda destek olabiliyorum."
     )
 
-    choice = st.radio(
-        "Seçenekler",
-        ["1) Ciro Tahmin Uygulaması", "2) Fatura Alanlarını JSON’a Çevirme"],
-        index=0
+    option = st.radio(
+        "Lütfen birini seç:",
+        [
+            "📊 Ciro Tahmin Uygulaması",
+            "🧾 Fatura Yükleyip JSON Çıktı Alma"
+        ]
     )
 
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        go = st.button("Devam ▶️")
-    with col2:
-        back = st.button("⬅️ Prompt’a dön")
-
-    if back:
-        st.session_state.step = "ask_prompt"
-        st.rerun()
-
-    if go:
-        st.session_state.choice = choice
+    if st.button("Çalıştır 🚀"):
+        st.session_state.option = option
         st.session_state.step = "result"
-        st.rerun()
+        st.experimental_rerun()
 
+# --------------------
+# STEP 3 – RESULT
+# --------------------
+elif st.session_state.step == "result":
 
-# ==========================
-# STEP 3: Sonuç üret (tek akış)
-# ==========================
-if st.session_state.step == "result":
-    st.info("Seçimin işleniyor…")
+    if "Ciro" in st.session_state.option:
+        st.subheader("📊 Ciro Tahmin Sonucu")
 
-    choice = st.session_state.get("choice", "")
-    if choice.startswith("1)"):
-        st.subheader("📊 Ciro Tahmin Uygulaması")
+        with st.spinner("Tahmin hesaplanıyor..."):
+            result = run_ciro_flow(DATA_DIR / "mock_ciro.xlsx")
 
-        # Excel upload yok → data/mock_ciro.xlsx içerden okunur
-        excel_path = DATA_DIR / "mock_ciro.xlsx"
-        if not excel_path.exists():
-            st.error(f"`{excel_path}` bulunamadı. Lütfen data klasörüne mock_ciro.xlsx koy.")
-        else:
-            with st.spinner("Tahmin hesaplanıyor..."):
-                out = run_ciro_flow(excel_path)
+        st.metric("Gelecek Ay Tahmini", result["forecast_total_try"])
+        st.metric("Değişim Oranı", result["forecast_vs_last_month"])
 
-            st.success("Tamamlandı ✅")
-            st.metric("Gelecek Ay Toplam Ciro Tahmini", out["forecast_total_try"])
-            st.metric("Son Aya Göre Değişim", out["forecast_vs_last_month"])
+        st.markdown("### 🤖 YORAI Yorumu")
+        st.write(result["ai_commentary"])
 
-            st.subheader("🤖 YORAI Yorumu")
-            st.write(out["ai_commentary"])
-
-            st.subheader("📋 Müşteri Bazlı Çıktı")
-            st.dataframe(out["table"], use_container_width=True)
+        st.dataframe(result["table"], use_container_width=True)
 
     else:
-        st.subheader("🧾 Fatura → JSON")
+        st.subheader("🧾 Fatura JSON Çıktısı")
 
-        # API yok → data/fatura.png içerden okunur
-        invoice_path = DATA_DIR / "fatura.png"
-        if not invoice_path.exists():
-            st.error(f"`{invoice_path}` bulunamadı. Lütfen data klasörüne fatura.png koy.")
-        else:
-            with st.spinner("Fatura analiz ediliyor..."):
-                result = run_invoice_flow(invoice_path)
+        with st.spinner("Fatura analiz ediliyor..."):
+            invoice = run_invoice_flow(DATA_DIR / "fatura.png")
 
-            if result.get("error"):
-                st.error(result["message"])
-            else:
-                st.success("JSON üretildi ✅")
-                st.json(result)
+        st.json(invoice)
 
-    st.divider()
-    if st.button("🔁 Yeni işlem yap"):
-        st.session_state.step = "ask_prompt"
-        st.session_state.user_prompt = ""
-        st.rerun()
+    st.markdown("---")
+    if st.button("🔁 Yeni İşlem"):
+        st.session_state.step = "prompt"
+        st.experimental_rerun()
