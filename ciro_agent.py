@@ -9,53 +9,56 @@ client = OpenAI()
 def run_ciro_flow(excel_path):
     df = pd.read_excel(excel_path)
 
-    # Beklenen kolonlar: Ay, Musteri, Ciro
-    df["Ay"] = pd.to_datetime(df["Ay"])
+    # 🔒 Kolon isimlerini normalize et
+    df.columns = [c.strip().lower() for c in df.columns]
 
-    # Son ay ve önceki ay
-    last_month = df["Ay"].max()
-    prev_month = last_month - pd.DateOffset(months=1)
+    # Olası tarih kolonları
+    if "ay" in df.columns:
+        date_col = "ay"
+    elif "tarih" in df.columns:
+        date_col = "tarih"
+    elif "date" in df.columns:
+        date_col = "date"
+    else:
+        raise ValueError(
+            f"Tarih kolonu bulunamadı. Bulunan kolonlar: {df.columns.tolist()}"
+        )
 
-    last_month_total = df[df["Ay"] == last_month]["Ciro"].sum()
-    prev_month_total = df[df["Ay"] == prev_month]["Ciro"].sum()
+    # Olası ciro kolonları
+    if "ciro" not in df.columns:
+        raise ValueError("Excel içinde 'ciro' kolonu bulunamadı.")
 
-    # Senaryo hesapları
-    scenarios = {
-        "İyimser": round(last_month_total * 1.10, 2),
-        "Normal": round(last_month_total * 1.00, 2),
-        "Kötümser": round(last_month_total * 0.90, 2),
-    }
+    # Tarih dönüşümü
+    df[date_col] = pd.to_datetime(df[date_col])
 
-    scenario_table = pd.DataFrame([
-        {
-            "Senaryo": k,
-            "Tahmini Ciro (₺)": v,
-            "Değişim (%)": round(((v - last_month_total) / last_month_total) * 100, 2)
-        }
-        for k, v in scenarios.items()
-    ])
+    # Son ay
+    last_month = df[date_col].max()
+    last_month_total = df[df[date_col] == last_month]["ciro"].sum()
 
-    # AI yorumu (yönetici dili)
+    # Senaryolar
+    scenarios = pd.DataFrame({
+        "Senaryo": ["Kötümser", "Beklenen", "İyimser"],
+        "Tahmini Ciro": [
+            int(last_month_total * 0.9),
+            int(last_month_total * 1.05),
+            int(last_month_total * 1.2),
+        ]
+    })
+
+    # AI Yorumu
     prompt = f"""
-    Aşağıdaki ciro tahmin senaryolarını Yorglass üst yönetimi için yorumla.
-    Kısa, net ve aksiyon odaklı ol.
-
-    Senaryolar:
-    {scenario_table.to_string(index=False)}
+    Son ay ciro: {last_month_total} TL.
+    Kötümser, beklenen ve iyimser senaryoları yorumla.
+    Yöneticiye yönelik, kısa ve net bir analiz yaz.
     """
 
-    ai_response = client.chat.completions.create(
+    response = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "Sen deneyimli bir finans analistisin."},
-            {"role": "user", "content": prompt}
-        ]
+        messages=[{"role": "user", "content": prompt}]
     )
-
-    commentary = ai_response.choices[0].message.content
 
     return {
         "last_month_total": last_month_total,
-        "scenarios": scenario_table,
-        "ai_commentary": commentary
+        "scenarios": scenarios,
+        "ai_commentary": response.choices[0].message.content
     }
