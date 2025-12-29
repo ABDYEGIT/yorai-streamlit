@@ -218,15 +218,13 @@ elif st.session_state.step == "select":
 elif st.session_state.step == "result":
 
     if "Ciro" in st.session_state.option:
-        st.subheader("📊 Ciro Tahmin Senaryoları")
+        st.subheader("📊 Ciro Tahmin Sonucu")
 
-        with st.spinner("Senaryolar hesaplanıyor..."):
+        with st.spinner("Tahmin hesaplanıyor..."):
             result = run_ciro_flow(DATA_DIR / "mock_ciro.xlsx")
 
-        st.metric("Son Ay Gerçekleşen Ciro", f"{result['last_month_total']:,.0f} ₺")
-
-        st.markdown("### 📈 Senaryo Bazlı Tahminler")
-        st.dataframe(result["scenarios"], use_container_width=True)
+        st.metric("Gelecek Ay Tahmini", result["forecast_total_try"])
+        st.metric("Değişim Oranı", result["forecast_vs_last_month"])
 
         st.markdown("### 🤖 YORAI Yorumu")
         st.write(result["ai_commentary"])
